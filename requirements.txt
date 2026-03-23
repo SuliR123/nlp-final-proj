@@ -1,0 +1,5 @@
+kagglehub
+torch
+nltk
+numpy
+scikit-learn
