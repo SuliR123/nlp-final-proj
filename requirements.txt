@@ -3,5 +3,8 @@ torch
 nltk
 numpy
 scikit-learn
+scipy
 transformers
+tokenizers
 pandas
+matplotlib

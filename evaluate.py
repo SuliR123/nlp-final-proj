@@ -186,7 +186,7 @@ class EvalModel():
         # plot losses 
         plt.plot(epochs, loss_vs_epochs, label="Train Loss")
         plt.plot(epochs, validation_loss_vs_epochs, label="Validation Loss")
-        plt.title("Loss over Epochs")
+        plt.title("Fixed Window Loss over Epochs")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.legend()
@@ -196,7 +196,7 @@ class EvalModel():
 
         # plot perplexity
         plt.plot(epochs, perplexity_vs_epochs, label="Perplexity")
-        plt.title("Perplexity over Epochs")
+        plt.title("Fixed Window Perplexity over Epochs")
         plt.xlabel("Epoch")
         plt.ylabel("Perplexity")
         plt.legend()
