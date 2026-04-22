@@ -7,6 +7,7 @@ import nltk
 import pandas as pd
 
 from featurizers.featurizer import Featurizer
+from models.distilbert import DistilBert
 from models.model import Model
 from models.n_grams import NGrams
 from sklearn.model_selection import train_test_split
@@ -36,22 +37,28 @@ class EvalModel():
         """
         path: Path = Path(kagglehub.dataset_download("debarshichanda/goemotions")) / "data" / "full_dataset" / "goemotions_1.csv"
 
-        print("Path to dataset files:", path)   
+        print("Path to dataset files:", path)
 
         df = pd.read_csv(path)
 
-        filter_cols = ['text', 'admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring', 'confusion', 
+        filter_cols = ['text', 'admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring', 'confusion',
                     'curiosity', 'desire', 'disappointment', 'disapproval', 'disgust',
                     'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy',
                     'love', 'nervousness', 'optimism', 'pride', 'realization', 'relief',
                     'remorse', 'sadness', 'surprise', 'neutral']
-        
+
         df = df.loc[df['example_very_unclear'] == False, filter_cols]
         df["label"] = df[filter_cols[1:]].idxmax(axis=1)
 
-        
+
         train, test = train_test_split(df, test_size=.2)
-        train.apply(featurizer.build_vocab_repr, axis = 1)
+
+        created_model = self.create_model(model, featurizer, df)
+
+        if model == "n-grams":
+            train.apply(featurizer.build_vocab_repr, axis=1)
+        elif model == "bert":
+            created_model.fit(train)
 
         print("=====ALL COLUMNS======")
         print(train.columns)
@@ -61,11 +68,13 @@ class EvalModel():
         print(f"LENGTH OF TRAINING {len(train)}")
         print(f"LENGTH OF VALDATION {len(test)}")
 
-        return self.create_model(model, featurizer), train, test 
+        return created_model, train, test
 
-    def create_model(self, model: str, featurizer: Featurizer):
+    def create_model(self, model: str, featurizer: Featurizer, df: pd.DataFrame):
         if model == "n-grams":
             return featurizer
+        elif model == "bert":
+            return DistilBert(labels=df["label"].unique().tolist())
         else:
             raise Exception("Unknown model")
     
@@ -86,7 +95,7 @@ if __name__ == "__main__":
 
     eval_model = EvalModel()
 
-    model, train, val_set = eval_model.load_data(NGrams(3, 1), args.model)
+    model, train, val_set = eval_model.load_data(NGrams(3, 1) if args.model == "n-grams" else Featurizer(), args.model)
     print(f"ACCURACY ON TRAINING SET: {eval_model.run_model_on_set(model, train)}")
     print(f"ACCURACY ON DEV SET: {eval_model.run_model_on_set(model, val_set)}")
 
