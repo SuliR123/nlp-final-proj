@@ -7,6 +7,8 @@
 pip3 install -r requirements.txt
 ```
 
+Link to the dataset https://www.kaggle.com/datasets/debarshichanda/goemotions
+
 ## Run Project
 For this project we have 3 models to run with some tweakable hyperparameters.
 
