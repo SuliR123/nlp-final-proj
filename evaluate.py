@@ -12,6 +12,7 @@ import torch
 from featurizers.featurizer import Featurizer
 from featurizers.word_embeddings import WordEmbeddings
 from models.fixed_window import FixedWindow, FixedWindowModel
+from models.distilbert import DistilBert
 from models.model import Model
 from models.n_grams import NGrams
 from sklearn.model_selection import train_test_split
@@ -30,6 +31,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument('--download_nltk', action='store_true', default=False)
     parser.add_argument('--window_size', type=int, default=3, help='Size of the window for the fixed winow ffnn')
     parser.add_argument('--embedding_dim', type=int, default=50, help="Size of the word embeddings")
+    parser.add_argument('--epochs', type=int, default=3, help="Number of epochs to run bert on")
+    parser.add_argument('--lr', type=float, default=.01, help="Learning rate for bert")
     args = parser.parse_args()
     return args
 
@@ -48,11 +51,11 @@ class EvalModel():
         """
         path: Path = Path(kagglehub.dataset_download("debarshichanda/goemotions")) / "data" / "full_dataset" / "goemotions_1.csv"
 
-        print("Path to dataset files:", path)   
+        print("Path to dataset files:", path)
 
         df = pd.read_csv(path)
 
-        filter_cols = ['text', 'admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring', 'confusion', 
+        filter_cols = ['text', 'admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring', 'confusion',
                     'curiosity', 'desire', 'disappointment', 'disapproval', 'disgust',
                     'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy',
                     'love', 'nervousness', 'optimism', 'pride', 'realization', 'relief',
@@ -78,11 +81,13 @@ class EvalModel():
 
         return train, test 
 
-    def create_model(self, model: str, featurizer: Featurizer):
+    def create_model(self, model: str, featurizer: Featurizer, df: pd.DataFrame):
         if model == "n-grams":
             return featurizer
         elif model == "fixed-window":
             return FixedWindow()
+        elif model == "bert":
+            return DistilBert(labels=df["label"].unique().tolist())
         else:
             raise Exception("Unknown model")
     
@@ -245,6 +250,13 @@ if __name__ == "__main__":
         featurizer = WordEmbeddings(args.embedding_dim, args.window_size)
         train, val_set = eval_model.load_data(featurizer, args.model)
         model = eval_model.train_fixed_window(train, val_set, args.embedding_dim, featurizer, args.window_size, args.training_mode == 'development')
+    elif args.model == "bert":
+        print(f"Bert | Num epochs: {args.epochs} | LR: {args.lr}")
+        train, val_set = eval_model.load_data(Featurizer(), args.model)
+        model = DistilBert(labels=train["label"].unique().tolist(), epochs=args.epochs, lr=args.lr)
+        model.fit(train, val_set)
+    else:
+        raise Exception(f"Must pass in either n-grams, fixed-window, or bert. Got {args.model}")
     
     acc, f1 = eval_model.run_model_on_set(model, train)
     print(f"ACCURACY ON TRAINING SET: {acc} | MACRO F1: {f1}")
