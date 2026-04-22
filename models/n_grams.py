@@ -21,7 +21,7 @@ class NGrams(Featurizer, Model):
         super().__init__()
         self.class_corpuses = {}
         self.n = n
-        self.interpolation = [.1, .3, .6] # TODO, automate creating the weight for any n
+        self.interpolation = [.1, .3, .6]
         self.unigram_count = 0
         self.k = k
         self.global_vocab = set() 
@@ -65,8 +65,6 @@ class NGrams(Featurizer, Model):
             
             final_prob += np.log(total_prob_for_n_gram)
             
-        # Optional: Add Log Prior P(Class) to handle class imbalance
-        # final_prob += np.log(self.class_total_words[label] / sum(self.class_total_words.values()))
         
         return final_prob
 
