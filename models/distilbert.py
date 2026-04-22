@@ -1,5 +1,6 @@
 from typing import List
 
+from matplotlib import pyplot as plt
 import pandas as pd
 import torch
 from torch.optim import AdamW
@@ -15,10 +16,10 @@ class DistilBert(Model):
     def __init__(
         self,
         labels: List[str],
-        lr: float = 5e-5,
+        lr: float = 5e-6,
         epochs: int = 3,
-        batch_size: int = 16,
-        max_length: int = 128,
+        batch_size: int = 32,
+        max_length: int = 64,
         pretrained: str = "distilbert-base-uncased",
     ):
         super().__init__()
@@ -42,15 +43,16 @@ class DistilBert(Model):
             pretrained, num_labels=len(self.labels)
         ).to(self.device)
 
-    def fit(self, train_df: pd.DataFrame):
-        texts = train_df["text"].tolist()
-        label_ids = [self.label_to_idx[l] for l in train_df["label"].tolist()]
-        print(f"Tokenizing {len(texts)} examples...")
-        dataset = _TextDataset(texts, label_ids, self.tokenizer, self.max_length)
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+    def fit(self, train_df: pd.DataFrame, val_df: pd.DataFrame):
+        loader = self.create_loader(train_df)
 
         optimizer = AdamW(self.model.parameters(), lr=self.lr)
         self.model.train()
+
+        train_loss = []
+        val_accuracy = []
+        perplexity = []
+
         for epoch in range(self.epochs):
             total_loss = 0.0
             pbar = tqdm(loader, desc=f"Epoch {epoch + 1}/{self.epochs}")
@@ -62,7 +64,43 @@ class DistilBert(Model):
                 optimizer.step()
                 total_loss += outputs.loss.item()
                 pbar.set_postfix(loss=f"{outputs.loss.item():.4f}")
-            print(f"Epoch {epoch + 1}/{self.epochs} avg loss: {total_loss / len(loader):.4f}")
+
+            val_preds = [self.predict(t) for t in val_df["text"]]
+            val_acc = (val_df["label"] == val_preds).sum() / len(val_df)
+            
+            avg_train_loss = total_loss / len(loader)
+            print(f"Epoch {epoch + 1}/{self.epochs} avg loss: {avg_train_loss:.4f} | Val accuracy: {val_acc:.4f}")
+
+            train_loss.append(avg_train_loss)
+            perplexity.append(torch.exp(torch.tensor(avg_train_loss)))
+            val_accuracy.append(val_acc)
+        
+        epochs = range(1, self.epochs + 1)
+
+        # plot losses
+        plt.plot(epochs, train_loss, label="Train Loss")
+        plt.title("Loss over Epochs")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.savefig("bert_loss.png")
+        plt.clf()
+
+        plt.plot(epochs, perplexity, label="Perplexity")
+        plt.title("Perplexity over Epochs")
+        plt.xlabel("Epoch")
+        plt.ylabel("Perplexity")
+        plt.legend()
+        plt.savefig("bert_perplexity.png")
+        plt.clf()
+
+        plt.plot(epochs, val_accuracy, label="Validation Accuracy")
+        plt.title("Validation Accuracy over Epochs")
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.savefig("bert_validation_acc.png")
+        plt.clf()
 
     def predict(self, text: str) -> str:
         self.model.eval()
@@ -76,6 +114,14 @@ class DistilBert(Model):
         with torch.no_grad():
             logits = self.model(**enc).logits
         return self.idx_to_label[logits.argmax(dim=-1).item()]
+    
+    def create_loader(self, df: pd.DataFrame):
+        texts = df["text"].tolist()
+        label_ids = [self.label_to_idx[l] for l in df["label"].tolist()]
+        print(f"Tokenizing {len(texts)} examples...")
+        dataset = _TextDataset(texts, label_ids, self.tokenizer, self.max_length)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        return loader
 
 
 class _TextDataset(Dataset):
