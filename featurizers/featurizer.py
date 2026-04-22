@@ -18,7 +18,7 @@ class Featurizer:
     def __init__(self):
         self.indexer = Indexer()
 
-    def to_feature(self, tokens: List[str]) -> torch.Tensor | str:
+    def to_feature(self, text: str) -> torch.Tensor:
         utils.not_implemented()
 
     def build_vocab_repr(self, row: Series) -> Series:
